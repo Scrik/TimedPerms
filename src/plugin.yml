@@ -1,0 +1,7 @@
+name: TimedPerms
+main: timedpermissions.TimedPermissions
+softdepend: [GroupManager]
+version: 1.0
+author: _Shevchik_
+commands:
+  timedperms:
