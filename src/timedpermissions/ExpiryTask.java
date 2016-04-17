@@ -1,12 +1,9 @@
 package timedpermissions;
 
-import java.util.Map.Entry;
-import java.util.UUID;
-
-import org.anjocaido.groupmanager.GroupManager;
-import org.anjocaido.groupmanager.dataholder.OverloadedWorldHolder;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+
+import simpleuserperms.SimpleUserPerms;
+import simpleuserperms.storage.User;
 
 public class ExpiryTask extends BukkitRunnable {
 
@@ -17,19 +14,17 @@ public class ExpiryTask extends BukkitRunnable {
 
 	@Override
 	public void run() {
-		GroupManager groupManager = JavaPlugin.getPlugin(GroupManager.class);
-		for (Entry<UUID, Long> entry : storage.getData().entrySet()) {
-			if (System.currentTimeMillis() >= entry.getValue()) {
-				try {
-					for (OverloadedWorldHolder holder : groupManager.getWorldsHolder().allWorldsDataList()) {
-						holder.getUser(entry.getKey().toString()).setGroup(holder.getDefaultGroup(), false);
-					}
-					storage.removeEntry(entry.getKey());
-				} catch (Throwable t) {
-				}
+		long timeMillis = System.currentTimeMillis();
+		storage.getData().entrySet()
+		.stream()
+		.filter(entry -> timeMillis >= entry.getValue())
+		.forEach(entry -> {
+			User user = SimpleUserPerms.getUsersStorage().getUserIfPresent(entry.getKey());
+			if (user != null) {
+				user.setMainGroup(SimpleUserPerms.getGroupsStorage().getDefaultGroup());
 			}
-		}
-		groupManager.getWorldsHolder().saveChanges(true);
+			storage.removeEntry(entry.getKey());
+		});
 	}
 
 }

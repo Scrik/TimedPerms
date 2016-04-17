@@ -5,16 +5,16 @@ import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import org.anjocaido.groupmanager.GroupManager;
-import org.anjocaido.groupmanager.data.User;
-import org.anjocaido.groupmanager.dataholder.OverloadedWorldHolder;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.java.JavaPlugin;
+
+import simpleuserperms.SimpleUserPerms;
+import simpleuserperms.storage.Group;
+import simpleuserperms.storage.User;
 
 public class Commands implements CommandExecutor {
 
@@ -31,8 +31,6 @@ public class Commands implements CommandExecutor {
 			return true;
 		}
 		try {
-			GroupManager groupManager = JavaPlugin.getPlugin(GroupManager.class);
-			OverloadedWorldHolder holder = groupManager.getWorldsHolder().getDefaultWorld();
 			switch (args[0].toLowerCase()) {
 				case "help": {
 					sender.sendMessage(ChatColor.YELLOW + "/timedperms set {username} {group} {days}");
@@ -50,20 +48,19 @@ public class Commands implements CommandExecutor {
 						sender.sendMessage(ChatColor.RED + "Player " + username + " never played on server before");
 						return true;
 					}
-					String group = args[2].toLowerCase();
-					if (!holder.getGroups().containsKey(group)) {
-						sender.sendMessage(ChatColor.RED + "Group " + group + " doesn't exist");
+					String groupName = args[2].toLowerCase();
+					Group group = SimpleUserPerms.getGroupsStorage().getGroup(groupName);
+					if (group == null) {
+						sender.sendMessage(ChatColor.RED + "Group " + groupName + " doesn't exist");
 						return true;
 					}
 					String time = args[3];
 					try {
 						int days = Integer.parseInt(time);
 						storage.addEntry(player.getUniqueId(), TimeUnit.DAYS.toMillis(days));
-						User user = holder.getUser(player.getUniqueId().toString());
-						user.setLastName(username);
-						user.setGroup(holder.getGroup(group), player.isOnline());
-						groupManager.getWorldsHolder().saveChanges(true);
-						sender.sendMessage(ChatColor.YELLOW + "Changed " + username + " group to " + group + " for " + days + " days");
+						User user = SimpleUserPerms.getUsersStorage().getUser(player.getUniqueId());
+						user.setMainGroup(group);
+						sender.sendMessage(ChatColor.YELLOW + "Changed " + username + " group to " + groupName + " for " + days + " days");
 					} catch (NumberFormatException e) {
 						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
 					}
@@ -73,10 +70,9 @@ public class Commands implements CommandExecutor {
 					String username = args[1];
 					OfflinePlayer player = Bukkit.getOfflinePlayer(username);
 					storage.removeEntry(player.getUniqueId());
-					if (holder.isUserDeclared(player.getUniqueId().toString())) {
-						User user = holder.getUser(player.getUniqueId().toString());
-						user.setGroup(holder.getDefaultGroup());
-						groupManager.getWorldsHolder().saveChanges(true);
+					User user = SimpleUserPerms.getUsersStorage().getUserIfPresent(player.getUniqueId());
+					if (user != null) {
+						user.setMainGroup(SimpleUserPerms.getGroupsStorage().getDefaultGroup());
 						sender.sendMessage(ChatColor.YELLOW + "Changed player " + username + " group to default");
 					} else {
 						sender.sendMessage(ChatColor.RED + "Player doesn't exist");

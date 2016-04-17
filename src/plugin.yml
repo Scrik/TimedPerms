@@ -1,6 +1,6 @@
 name: TimedPerms
 main: timedpermissions.TimedPermissions
-softdepend: [GroupManager]
+softdepend: [SimpleUserPerms]
 version: 1.0
 author: _Shevchik_
 commands:

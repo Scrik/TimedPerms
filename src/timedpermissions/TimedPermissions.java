@@ -9,6 +9,7 @@ public class TimedPermissions extends JavaPlugin {
 
 	private Storage storage;
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public void onEnable() {
 		storage = new Storage(this);
