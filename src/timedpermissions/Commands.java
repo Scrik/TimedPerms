@@ -48,7 +48,7 @@ public class Commands implements CommandExecutor {
 						sender.sendMessage(ChatColor.RED + "Player " + username + " never played on server before");
 						return true;
 					}
-					String groupName = args[2].toLowerCase();
+					String groupName = args[2];
 					Group group = SimpleUserPerms.getGroupsStorage().getGroup(groupName);
 					if (group == null) {
 						sender.sendMessage(ChatColor.RED + "Group " + groupName + " doesn't exist");
