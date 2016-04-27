@@ -1,8 +1,5 @@
 package timedpermissions;
 
-import java.util.Iterator;
-import java.util.Map.Entry;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
@@ -12,9 +9,11 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
-import simpleuserperms.SimpleUserPerms;
-import simpleuserperms.storage.Group;
-import simpleuserperms.storage.User;
+import timedpermissions.subscription.Storage;
+import timedpermissions.subscription.Subscription;
+import timedpermissions.subscription.SubscriptionMainGroup;
+import timedpermissions.subscription.SubscriptionPermission;
+import timedpermissions.subscription.SubscriptionSubGroup;
 
 public class Commands implements CommandExecutor {
 
@@ -33,12 +32,11 @@ public class Commands implements CommandExecutor {
 		try {
 			switch (args[0].toLowerCase()) {
 				case "help": {
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms set {username} {group} {days}");
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms remove {username}");
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms extendall {days}");
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms extend {username} {days}");
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms list");
-					sender.sendMessage(ChatColor.YELLOW + "/timedperms info {username}");
+					sender.sendMessage(ChatColor.YELLOW + label + " set {username} {group} {days}");
+					sender.sendMessage(ChatColor.YELLOW + label + " addgroup {username} {group} {days}");
+					sender.sendMessage(ChatColor.YELLOW + label + " addperm {username} {permission} {days}");
+					sender.sendMessage(ChatColor.YELLOW + label + " extendall {days}");
+					sender.sendMessage(ChatColor.YELLOW + label + " list");
 					return true;
 				}
 				case "set": {
@@ -49,33 +47,70 @@ public class Commands implements CommandExecutor {
 						return true;
 					}
 					String groupName = args[2];
-					Group group = SimpleUserPerms.getGroupsStorage().getGroup(groupName);
-					if (group == null) {
-						sender.sendMessage(ChatColor.RED + "Group " + groupName + " doesn't exist");
-						return true;
-					}
 					String time = args[3];
 					try {
 						int days = Integer.parseInt(time);
-						storage.addEntry(player.getUniqueId(), TimeUnit.DAYS.toMillis(days));
-						User user = SimpleUserPerms.getUsersStorage().getUser(player.getUniqueId());
-						user.setMainGroup(group);
-						sender.sendMessage(ChatColor.YELLOW + "Changed " + username + " group to " + groupName + " for " + days + " days");
+						Subscription sub = new SubscriptionMainGroup(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(days), player.getUniqueId(), groupName);
+						String errMsg = sub.validate();
+						if (errMsg != null) {
+							sender.sendMessage(ChatColor.RED + "Error: " + errMsg);
+						} else {
+							storage.addSubscription(sub);
+							sub.apply();
+							sender.sendMessage(ChatColor.YELLOW + "Changed " + username + " main group to " + groupName + " for " + days + " days");
+						}
 					} catch (NumberFormatException e) {
 						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
 					}
 					return true;
 				}
-				case "remove": {
+				case "addgroup": {
 					String username = args[1];
 					OfflinePlayer player = Bukkit.getOfflinePlayer(username);
-					storage.removeEntry(player.getUniqueId());
-					User user = SimpleUserPerms.getUsersStorage().getUserIfPresent(player.getUniqueId());
-					if (user != null) {
-						user.setMainGroup(SimpleUserPerms.getGroupsStorage().getDefaultGroup());
-						sender.sendMessage(ChatColor.YELLOW + "Changed player " + username + " group to default");
-					} else {
-						sender.sendMessage(ChatColor.RED + "Player doesn't exist");
+					if (!player.isOnline() && !player.hasPlayedBefore()) {
+						sender.sendMessage(ChatColor.RED + "Player " + username + " never played on server before");
+						return true;
+					}
+					String groupName = args[2];
+					String time = args[3];
+					try {
+						int days = Integer.parseInt(time);
+						Subscription sub = new SubscriptionSubGroup(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(days), player.getUniqueId(), groupName);
+						String errMsg = sub.validate();
+						if (errMsg != null) {
+							sender.sendMessage(ChatColor.RED + "Error: " + errMsg);
+						} else {
+							storage.addSubscription(sub);
+							sub.apply();
+							sender.sendMessage(ChatColor.YELLOW + "Added sub group " + groupName + " to " + username + " for " + days + " days");
+						}
+					} catch (NumberFormatException e) {
+						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
+					}
+					return true;
+				}
+				case "addperm": {
+					String username = args[1];
+					OfflinePlayer player = Bukkit.getOfflinePlayer(username);
+					if (!player.isOnline() && !player.hasPlayedBefore()) {
+						sender.sendMessage(ChatColor.RED + "Player " + username + " never played on server before");
+						return true;
+					}
+					String permName = args[2];
+					String time = args[3];
+					try {
+						int days = Integer.parseInt(time);
+						Subscription sub = new SubscriptionPermission(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(days), player.getUniqueId(), permName);
+						String errMsg = sub.validate();
+						if (errMsg != null) {
+							sender.sendMessage(ChatColor.RED + "Error: " + errMsg);
+						} else {
+							storage.addSubscription(sub);
+							sub.apply();
+							sender.sendMessage(ChatColor.YELLOW + "Added permission " + permName + " to " + username + " for " + days + " days");
+						}
+					} catch (NumberFormatException e) {
+						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
 					}
 					return true;
 				}
@@ -83,10 +118,8 @@ public class Commands implements CommandExecutor {
 					String time = args[1];
 					try {
 						int days = Integer.parseInt(time);
-						Iterator<Entry<UUID, Long>> iterator = storage.directIterator();
-						while (iterator.hasNext()) {
-							Entry<UUID, Long> entry = iterator.next();
-							entry.setValue(entry.getValue() + TimeUnit.DAYS.toMillis(days));
+						for (Subscription sub : storage.getSubscriptions()) {
+							sub.modifyExpireTime(TimeUnit.DAYS.toMillis(days));
 						}
 						sender.sendMessage(ChatColor.YELLOW + "All subscriptions have been extended for " + days + " days");
 					} catch (NumberFormatException e) {
@@ -94,43 +127,18 @@ public class Commands implements CommandExecutor {
 					}
 					return true;
 				}
-				case "extend": {
-					String username = args[1];
-					String time = args[2];
-					OfflinePlayer player = Bukkit.getOfflinePlayer(username);
-					if (!player.isOnline() && !player.hasPlayedBefore()) {
-						sender.sendMessage(ChatColor.RED + "Player " + username + " never played on server before");
-						return true;
-					}
-					try {
-						int days = Integer.parseInt(time);
-						boolean has = storage.modify(player.getUniqueId(), (uuid, etime) -> etime + TimeUnit.DAYS.toMillis(days));
-						if (has) {
-							sender.sendMessage(ChatColor.YELLOW + "Subscription for player " + username + " has been extended for " + days + " days");
-						} else {
-							sender.sendMessage(ChatColor.RED + "Player " + username + " doesn't have a subscription");
-						}
-					} catch (NumberFormatException e) {
-						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
-					}
-					return true;
-				}
 				case "list": {
 					long ctime = System.currentTimeMillis();
-					Iterator<Entry<UUID, Long>> iterator = storage.directIterator();
-					while (iterator.hasNext()) {
-						Entry<UUID, Long> entry = iterator.next();
-						sender.sendMessage(ChatColor.YELLOW + Bukkit.getOfflinePlayer(entry.getKey()).getName() + " has " + TimeUnit.MILLISECONDS.toDays(entry.getValue() - ctime) + " days left");
-					}
-					return true;
-				}
-				case "info": {
-					String username = args[1];
-					long expirytime = storage.getValue(Bukkit.getOfflinePlayer(username).getUniqueId());
-					if (expirytime == -1) {
-						sender.sendMessage(ChatColor.RED + "Player " + username + " doesn't have a subscription");
-					} else {
-						sender.sendMessage(ChatColor.YELLOW + "Player " + username + " has " + TimeUnit.MILLISECONDS.toDays(expirytime - System.currentTimeMillis()) + " days remaining");
+					for (Subscription sub : storage.getSubscriptions()) {
+						sender.sendMessage(
+							ChatColor.YELLOW +
+							sub.getTempUID() +
+							") " +
+							Bukkit.getOfflinePlayer(sub.getPlayerUUID()).getName() +
+							" has " +
+							TimeUnit.MILLISECONDS.toDays(sub.getExpireTime() - ctime) +
+							" days left: "+sub.getInfoString()
+						);
 					}
 					return true;
 				}

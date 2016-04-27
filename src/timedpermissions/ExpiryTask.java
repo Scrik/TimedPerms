@@ -2,8 +2,8 @@ package timedpermissions;
 
 import org.bukkit.scheduler.BukkitRunnable;
 
-import simpleuserperms.SimpleUserPerms;
-import simpleuserperms.storage.User;
+import timedpermissions.subscription.Storage;
+import timedpermissions.subscription.Subscription;
 
 public class ExpiryTask extends BukkitRunnable {
 
@@ -14,16 +14,13 @@ public class ExpiryTask extends BukkitRunnable {
 
 	@Override
 	public void run() {
-		long timeMillis = System.currentTimeMillis();
-		storage.getData().entrySet()
+		storage
+		.getSubscriptions()
 		.stream()
-		.filter(entry -> timeMillis >= entry.getValue())
+		.filter(Subscription::isExpired)
 		.forEach(entry -> {
-			User user = SimpleUserPerms.getUsersStorage().getUserIfPresent(entry.getKey());
-			if (user != null) {
-				user.setMainGroup(SimpleUserPerms.getGroupsStorage().getDefaultGroup());
-			}
-			storage.removeEntry(entry.getKey());
+			entry.expire();
+			storage.removeSubscription(entry);
 		});
 	}
 
