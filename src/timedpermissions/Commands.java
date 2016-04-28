@@ -36,6 +36,7 @@ public class Commands implements CommandExecutor {
 					sender.sendMessage(ChatColor.YELLOW + label + " addgroup {username} {group} {days}");
 					sender.sendMessage(ChatColor.YELLOW + label + " addperm {username} {permission} {days}");
 					sender.sendMessage(ChatColor.YELLOW + label + " extendall {days}");
+					sender.sendMessage(ChatColor.YELLOW + label + " remove {tempuid}");
 					sender.sendMessage(ChatColor.YELLOW + label + " list");
 					return true;
 				}
@@ -124,6 +125,18 @@ public class Commands implements CommandExecutor {
 						sender.sendMessage(ChatColor.YELLOW + "All subscriptions have been extended for " + days + " days");
 					} catch (NumberFormatException e) {
 						sender.sendMessage(ChatColor.RED + time + " is not a valid number");
+					}
+					return true;
+				}
+				case "remove": {
+					String id = args[1];
+					for (Subscription sub : storage.getSubscriptions()) {
+						if (sub.getTempUID().equals(id)) {
+							sub.expire();
+							storage.removeSubscription(sub);
+							sender.sendMessage(ChatColor.YELLOW + "Removed subscription with temp uid " + id);
+							break;
+						}
 					}
 					return true;
 				}
