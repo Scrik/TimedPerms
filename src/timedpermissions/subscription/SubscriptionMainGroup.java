@@ -43,7 +43,11 @@ public class SubscriptionMainGroup extends Subscription {
 
 	@Override
 	protected void loadData(ConfigurationSection section) {
-		groupName = section.getString("group", "unknown");
+		groupName = section.getString("group");
+	}
+
+	public String getGroupName() {
+		return groupName;
 	}
 
 	@Override

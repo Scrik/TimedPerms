@@ -79,7 +79,7 @@ public abstract class Subscription {
 		register("permission", SubscriptionPermission.class);
 	}
 
-	protected static void register(String type, Class<? extends Subscription> clazz) {
+	public static void register(String type, Class<? extends Subscription> clazz) {
 		typeToClass.put(type, clazz);
 		classToType.put(clazz, type);
 	}
